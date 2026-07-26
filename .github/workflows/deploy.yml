@@ -1,0 +1,47 @@
+name: deploy
+
+# The worker lives in favorites/ (worker.js + public/ assets, no build step).
+# Push to main deploys it; changes elsewhere in the repo do not.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'favorites/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No install step: there is no package.json here and no build. wrangler
+      # comes from npx, and the static assets in public/ ship as-is.
+      - name: Build check (no deploy)
+        working-directory: favorites
+        run: npx --yes wrangler@4 deploy --dry-run
+
+      # Fail rather than skip: a deploy job that cannot deploy must not be green.
+      - name: Require deploy credentials
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is not set — refusing to report success without deploying."
+            exit 1
+          fi
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          workingDirectory: favorites
+          # Deploy ships worker.js + public/ and the KV *binding*; it does not
+          # touch KV contents, so saved shortcuts survive a redeploy.
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: '4'
