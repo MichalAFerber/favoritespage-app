@@ -1,0 +1,33 @@
+name: ci
+
+# §4: the gate lives on the pull request. This repo deployed from main with
+# nothing checking a change first, so the deploy was the first thing to find out.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job name is the required-check context; the estate requires `ci`.
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        run: |
+          fail=0
+          for f in $(git ls-files '*.sh'); do
+            bash -n "$f" || { echo "::error file=$f::syntax error"; fail=1; }
+          done
+          exit $fail
+      - name: Build check (no deploy)
+        # The Worker lives under favorites/, not the repo root.
+        working-directory: favorites
+        run: npx --yes wrangler@4 deploy --dry-run
