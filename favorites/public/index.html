@@ -79,6 +79,39 @@
     padding: 32px 16px 64px;
   }
 
+  #search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 640px;
+    height: 50px;
+    margin: 0 auto 24px;
+    padding: 0 20px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.10);
+    backdrop-filter: blur(6px);
+  }
+  #search:focus-within {
+    border-color: var(--accent);
+  }
+  #search svg {
+    flex: none;
+    color: var(--fg-dim);
+  }
+  #searchBox {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--fg);
+    /* 16px keeps iOS from zooming the page when the input gains focus. */
+    font-size: 16px;
+  }
+  #searchBox::-webkit-search-cancel-button { -webkit-appearance: none; }
+
   #pages {
     display: flex;
     flex-wrap: wrap;
@@ -274,6 +307,10 @@
 </header>
 
 <main>
+  <div id="search">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+    <input type="search" id="searchBox" aria-label="Search Google" autocomplete="off" spellcheck="false" enterkeyhint="search">
+  </div>
   <nav id="pages" hidden aria-label="Pages"></nav>
   <div id="grid"></div>
   <div id="empty" hidden><span id="emptyMsg">No shortcuts yet — tap + to add one.</span><br><span class="hint">Long-press a tile to edit or delete it.</span></div>
@@ -1028,6 +1065,35 @@ $("importFile").addEventListener("change", async () => {
   toast("Imported " + added + " shortcut" + (added === 1 ? "" : "s") +
     (incoming.length - added > 0 ? " (" + (incoming.length - added) + " already present)" : ""));
   $("settingsDialog").close();
+});
+
+/* ---------- Google search (Enter opens a new tab; "/" focuses) ---------- */
+
+const searchBox = $("searchBox");
+
+searchBox.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    searchBox.blur();
+    return;
+  }
+  if (e.key !== "Enter") return;
+  const q = searchBox.value.trim();
+  if (!q) return;
+  e.preventDefault();
+  window.open("https://www.google.com/search?q=" + encodeURIComponent(q), "_blank", "noopener");
+  // Reload instead of clearing the box — a fresh page also re-pulls state.
+  location.reload();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t instanceof HTMLElement &&
+      (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+  // Never steal the key while a dialog is open.
+  if (document.querySelector("dialog[open]")) return;
+  e.preventDefault();
+  searchBox.focus();
 });
 
 /* ---------- toast ---------- */
