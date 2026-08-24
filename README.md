@@ -23,17 +23,12 @@ A fast, self-hosted favorites (speed-dial) page that syncs across devices. One C
 ## How it is built
 
 ```
-favorites/            # the app — favorites.mykk.us
+favorites/
 ├── public/
 │   └── index.html    # the entire frontend: HTML + CSS + JS in one file
 ├── worker.js         # /api/state handler + auth, /icon proxy
 ├── issue-token.sh    # issue / map / revoke user tokens
 └── wrangler.toml     # bindings, assets dir, custom domain route
-marketing/            # the marketing site — favoritespage.us
-├── public/
-│   └── index.html    # single-file marketing page + token portal UI
-├── worker.js         # POST /api/signup: self-service token issuance
-└── wrangler.toml     # same KV namespace, favoritespage.us custom domain
 ```
 
 - **Frontend** — one HTML file, inline CSS and JS, no bundler, no npm, no CDN dependencies. Cloudflare serves it as a static asset before the Worker is ever invoked.
@@ -50,25 +45,11 @@ marketing/            # the marketing site — favoritespage.us
 - **Auth** — the bearer token *is* the identity. The Worker hashes it (SHA-256) and looks up `token:<hash>` → `userId` in KV; the user's document lives at `state:<userId>`. Plaintext tokens are never stored server-side, and the sync token lives only in each device's local storage — never inside the synced document.
 - **State document** — one JSON blob per user: `shortcuts` (each with a name, url, and optional `iconUrl` / `page`) plus `settings` (theme, desktop and mobile wallpaper URLs, background color, and per-page sort mode). The device-local default page is deliberately *not* in it.
 - **Sync model** — last-write-wins on the document's `updatedAt`, whole document, per user. Two of *your own* devices editing offline resolve to the newest write; different users can never touch each other's documents. No merging, no CRDTs — deliberately.
-- **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine. (The marketing worker adds short-lived `signup:*` throttle keys — see below.)
+- **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine. (The signup portal below adds short-lived `signup:*` throttle keys to the same namespace.)
 
 ## The marketing site (favoritespage.us)
 
-`marketing/` is a second, independent Worker on the same pattern (static single-file page served as an asset, tiny API behind it) bound to the **same KV namespace**, so a token issued there works at favorites.mykk.us immediately.
-
-```
-POST /api/signup   → 200 {"ok":true,"userId":"u…","token":"…"}   issue a token (shown once)
-                   → 429 rate-limited (per-IP cooldown, default 1/hour)
-                   → 503 closed (daily cap reached, or signups paused)
-```
-
-Abuse controls, because self-service issuance shares the KV free tier's 1,000 writes/day with sync:
-
-- **Per-IP cooldown** — one signup per IP per `SIGNUP_IP_COOLDOWN_SECS` (default 1 hour), tracked as `signup:ip:<sha256(day|ip)>` so raw IPs are never stored and markers don't link across days. Rejected calls burn zero KV writes.
-- **Global daily cap** — at most `SIGNUP_DAILY_CAP` tokens per UTC day (default 25, ≤ 75 KV writes), tracked as `signup:count:<date>`. When it's reached the portal says so and sync is unaffected.
-- **Kill switch** — set `SIGNUP_DAILY_CAP = "0"` in `marketing/wrangler.toml` and redeploy to pause signups entirely (back to invite-only); the portal shows a friendly closed message.
-
-Self-service users get a random `u<10 hex>` user id (shown on the page as a support handle — the token stays the only secret). Owner-issued tokens via `issue-token.sh` work exactly as before.
+The marketing site and self-service token portal live in their own repo, **[MichalAFerber/favoritespage](https://github.com/MichalAFerber/favoritespage)** — a second, independent Worker on the same pattern, bound to the **same KV namespace**, so a token issued there works here immediately (it writes exactly the `token:<hash>` → `userId` mapping `issue-token.sh` writes). Signups are rate-capped per IP and per day, with `SIGNUP_DAILY_CAP = "0"` as the kill switch back to invite-only; that repo's README has the details. Owner-issued tokens via `issue-token.sh` work exactly as before.
 
 ## Using the app
 
