@@ -7,12 +7,13 @@ Runbook for Claude Code. Read this before touching anything.
 Multi-user favorites/speed-dial page. One Cloudflare Worker serves a static
 single-file HTML app and a tiny token-authenticated state API backed by
 Workers KV. No framework, no build step, no database, no accounts or login
-UI. Keep it that way. A second, independent Worker (`marketing/`) serves the
-marketing site at favoritespage.us with rate-limited self-service token
-issuance — see "Marketing site" below.
+UI. Keep it that way. The marketing site at favoritespage.us, with its
+rate-limited self-service token issuance, is a separate Worker in its own
+repo (MichalAFerber/favoritespage) sharing this KV namespace — see
+"Marketing site" below.
 
 - **Live URL:** https://favorites.mykk.us
-- **Marketing site:** https://favoritespage.us (Worker `favoritespage-us`)
+- **Marketing site:** https://favoritespage.us (repo MichalAFerber/favoritespage)
 - **Worker name:** `favorites`
 - **Cloudflare account:** TechGuyWithABeard (`8a0d49b1f3fdcdadec135562ec8a4fdc`)
   — the CF credentials on this machine can see multiple accounts (GEA LLC,
@@ -27,23 +28,16 @@ issuance — see "Marketing site" below.
 ## Repo layout
 
 ```
-favorites/            # the app — favorites.mykk.us
+favorites/
 ├── public/
 │   └── index.html    # the entire frontend (HTML+CSS+JS, single file)
 ├── worker.js         # /api/state handler + auth
 ├── issue-token.sh    # issue / map / revoke per-user sync tokens
 └── wrangler.toml     # bindings, assets dir, custom domain route
-marketing/            # the marketing site — favoritespage.us
-├── public/
-│   └── index.html    # single-file marketing page + token portal UI
-├── worker.js         # POST /api/signup (self-service token issuance)
-└── wrangler.toml     # SAME KV namespace, favoritespage.us custom domain
 ```
 
-Static assets are served before either Worker is invoked. `favorites/worker.js`
-only ever sees requests that don't match an asset — in practice, `/api/state`;
-`marketing/worker.js` only ever sees `/api/signup` (everything else non-asset
-302s to `/`).
+Static assets are served before the Worker is invoked. `worker.js` only ever
+sees requests that don't match an asset — in practice, `/api/state`.
 
 ## API contract (do not break)
 
@@ -63,20 +57,12 @@ The token is the entire identity: the Worker hashes it (SHA-256), looks up
 `token:<hash>` in KV to get the userId, and reads/writes `state:<userId>`.
 There is no other user management — issuing a token creates a user.
 
-Marketing Worker (favoritespage.us), same KV namespace:
-
-```
-POST /api/signup   (no auth — self-service, rate-limited)
-  → 200 {"ok":true,"userId":"u<10 hex>","token":"<base64url>"} — token shown once
-  → 429 per-IP cooldown (SIGNUP_IP_COOLDOWN_SECS, default 1 h; key signup:ip:<sha256(day|ip)>)
-  → 503 daily cap reached or signups paused (SIGNUP_DAILY_CAP, default 25; key signup:count:<date>)
-```
-
-Both knobs live in `marketing/wrangler.toml` `[vars]`; `SIGNUP_DAILY_CAP = "0"`
-is the kill switch back to invite-only. The signup Worker writes only
-`token:<hash>` mappings and its own TTL'd `signup:*` keys — never `state:*`.
-Raw IPs are never stored (day-salted hash), and rejected calls burn zero KV
-writes. The caps exist to protect the KV free tier's 1,000 writes/day.
+Marketing Worker (favoritespage.us — repo MichalAFerber/favoritespage,
+its own CLAUDE.md is the authority): shares this KV namespace, issuing
+`token:<hash>` → `u<10 hex>` mappings via a rate-capped `POST /api/signup`
+plus its own TTL'd `signup:*` throttle keys — never `state:*`. Expect those
+key shapes when inspecting the namespace, and count its capped writes
+(≤ ~75/day by default) against the free tier's 1,000/day.
 
 State document shape (per user):
 
@@ -120,11 +106,8 @@ that runs `npx wrangler deploy`. The build's **root directory must be
 connecting the repo does not build retroactively; only pushes made after
 the connection fire builds.
 
-The marketing Worker deploys from `marketing/` via
-`.github/workflows/deploy-marketing.yml` (push to `main` touching
-`marketing/**`). It is NOT covered by the Workers Builds connection above —
-that one is rooted at `favorites/`. Its first deploy needs the
-favoritespage.us zone present in the TGWAB account.
+The marketing Worker deploys from its own repo
+(MichalAFerber/favoritespage), not from here.
 
 ## Users and tokens
 
@@ -237,9 +220,10 @@ users is fine; watch this before inviting more.
   Never operate in the GEA or ThompsonBlack accounts.
 - Don't add auth complexity (OAuth, accounts, sessions, login UI). Per-user
   bearer tokens are the design, not a placeholder. The one sanctioned
-  issuance path besides `issue-token.sh` is the marketing Worker's capped
-  `/api/signup` — owner's decision, with `SIGNUP_DAILY_CAP = "0"` as the way
-  back to invite-only. Don't loosen its caps or add account features on top.
+  issuance path besides `issue-token.sh` is the capped `/api/signup` in
+  MichalAFerber/favoritespage — owner's decision, with `SIGNUP_DAILY_CAP =
+  "0"` there as the way back to invite-only. Don't add account features on
+  top here.
 - 100 KB PUT cap (per user) stays. If a user's state outgrows it, that's a
   design conversation with the owner, not a limit bump.
 - Ask before: deleting the KV namespace, changing the route/domain, or

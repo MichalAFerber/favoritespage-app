@@ -31,6 +31,3 @@ jobs:
         # The Worker lives under favorites/, not the repo root.
         working-directory: favorites
         run: npx --yes wrangler@4 deploy --dry-run
-      - name: Build check marketing (no deploy)
-        working-directory: marketing
-        run: npx --yes wrangler@4 deploy --dry-run
