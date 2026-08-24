@@ -1,0 +1,28 @@
+name = "favoritespage-us"
+main = "worker.js"
+account_id = "8a0d49b1f3fdcdadec135562ec8a4fdc" # TechGuyWithABeard — never another account
+compatibility_date = "2025-10-01"
+
+# The marketing page is a static asset, served before the Worker runs;
+# worker.js only ever sees /api/signup (and stray non-asset paths).
+[assets]
+directory = "./public"
+
+# Signups write into the SAME namespace the favorites Worker reads — a token
+# issued here works at favorites.mykk.us immediately. This Worker only ever
+# touches `token:<hash>` (writes) and its own `signup:*` throttle keys.
+[[kv_namespaces]]
+binding = "SHORTCUTS_KV"
+id = "71257de3aef04824ad72e7597d0ed8ac"
+
+[vars]
+# Self-service throttle knobs. Set SIGNUP_DAILY_CAP to "0" to pause signups
+# (the portal shows a friendly closed message) — no code change needed.
+SIGNUP_DAILY_CAP = "25"
+SIGNUP_IP_COOLDOWN_SECS = "3600"
+
+# The favoritespage.us zone must live in the TGWAB account before the first
+# deploy; the deploy then provisions DNS + cert itself (same as favorites).
+[[routes]]
+pattern = "favoritespage.us"
+custom_domain = true

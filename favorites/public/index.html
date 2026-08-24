@@ -201,10 +201,15 @@
   }
   .tile .label {
     font-size: 13px;
+    line-height: 1.3;
     max-width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* Wrap to two lines before truncating — bookmark imports bring long
+       names, and one nowrap line cut most of them at ~12 characters. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
   }
 
   #empty {
@@ -291,6 +296,9 @@
     padding: 10px 18px;
     border-radius: 10px;
     font-size: 14px;
+    max-width: min(480px, calc(100vw - 32px));
+    width: max-content;
+    text-align: center;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s;
@@ -322,7 +330,7 @@
     <label for="editName">Name</label>
     <input type="text" id="editName" required maxlength="60" autocomplete="off">
     <label for="editUrl">URL</label>
-    <input type="text" id="editUrl" required autocomplete="off" placeholder="https://example.com" inputmode="url">
+    <input type="text" id="editUrl" required autocomplete="off" placeholder="https://example.com — or a local file path" inputmode="url">
     <label for="editIconUrl">Icon URL</label>
     <input type="text" id="editIconUrl" autocomplete="off" placeholder="https://…/icon.png (optional)" inputmode="url">
     <p class="hint">Leave empty to auto-detect (Dashboard Icons, then the site's favicon) — or paste a URL from icons8.com, simpleicons.org, or any image CDN.</p>
@@ -563,6 +571,13 @@ function avatarColor(name) {
   return "hsl(" + (h % 360) + ", 45%, 45%)";
 }
 
+const isFileUrl = (u) => /^file:/i.test(String(u || ""));
+
+// Constant markup — never carries user data (see the innerHTML rule above).
+const FOLDER_SVG =
+  '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+
 function makeIcon(sc) {
   const wrap = document.createElement("div");
   wrap.className = "icon";
@@ -575,6 +590,16 @@ function makeIcon(sc) {
     avatar.textContent = (sc.name || host || "?").trim().charAt(0).toUpperCase() || "?";
     wrap.replaceChildren(avatar);
   };
+  // Local files get a folder glyph on the avatar color — the /icon proxy has
+  // nothing to resolve for them, and a bare letter reads as a broken icon.
+  if (!sc.iconUrl && isFileUrl(sc.url)) {
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.style.background = avatarColor(sc.name || "file");
+    avatar.innerHTML = FOLDER_SVG;
+    wrap.appendChild(avatar);
+    return wrap;
+  }
   if (!sc.iconUrl && !host) {
     makeAvatar();
     return wrap;
@@ -640,8 +665,10 @@ function render() {
     const label = document.createElement("div");
     label.className = "label";
     label.textContent = sc.name;
+    label.title = sc.name; // full name on hover once the 2-line clamp cuts it
     tile.appendChild(label);
     attachLongPress(tile, sc);
+    if (isFileUrl(sc.url)) attachFileOpen(tile, sc);
     grid.appendChild(tile);
   }
   const sortBtn = $("sortBtn");
@@ -791,6 +818,26 @@ function attachLongPress(tile, sc) {
   });
 }
 
+/* ---------- file:// tiles ----------
+   Browsers refuse to navigate from an https page to file:// (the click is
+   silently ignored), so clicking a file tile copies its URL for pasting into
+   the address bar. The href stays real on purpose: right-click → copy/open
+   still behaves normally, and browsers with a local-links extension navigate
+   on the plain click before the toast ever matters. */
+
+function attachFileOpen(tile, sc) {
+  tile.addEventListener("click", (e) => {
+    if (e.defaultPrevented) return; // long-press already claimed this click
+    // Local paths are nobody's business — keep the document-level analytics
+    // click listener from ever seeing this link.
+    e.stopPropagation();
+    navigator.clipboard.writeText(sc.url).then(
+      () => toast("Link copied — paste it into the address bar (browsers block file:// links from web pages)"),
+      () => toast("Browsers block file:// links from web pages — long-press the tile to copy its path")
+    );
+  });
+}
+
 /* ---------- add / edit dialog ---------- */
 
 let editingId = null; // null = adding
@@ -798,6 +845,13 @@ let editingId = null; // null = adding
 function normalizeUrl(raw) {
   const s = raw.trim();
   if (!s) return "";
+  // Pasted local paths become file:// URLs, like bare domains become https://.
+  // Only # and ? are escaped — they would derail URL parsing; everything else
+  // (spaces included) stays readable and browsers encode it on navigation.
+  const asFilePath = (p) => p.replace(/\\/g, "/").replace(/#/g, "%23").replace(/\?/g, "%3F");
+  if (/^[a-z]:[\\/]/i.test(s)) return "file:///" + asFilePath(s);      // C:\Users\me
+  if (/^\\\\[^\\]/.test(s)) return "file://" + asFilePath(s.slice(2)); // \\server\share
+  if (s.startsWith("/")) return "file://" + asFilePath(s);             // /home/me
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : "https://" + s;
 }
 
@@ -985,7 +1039,7 @@ function parseBookmarksHtml(text) {
     if (full.toUpperCase().startsWith("<H3")) {
       stack.push(normalizePage(decode(h3)));
     } else if (href !== undefined) {
-      if (!/^https?:\/\//i.test(href)) continue;
+      if (!/^(https?|file):\/\//i.test(href)) continue;
       const folders = stack.filter((f) => f && !ROOTS.has(f));
       out.push({
         name: decode(aText).trim() || decode(href),

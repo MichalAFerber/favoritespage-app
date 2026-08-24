@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Favorites — your favorites, on every device. No account.</title>
+<meta name="description" content="A fast, private speed-dial page for the sites, dashboards, and files you open every day. One token syncs it to every device — no email, no password, no tracking. Free and open source.">
+<link rel="canonical" href="https://favoritespage.us/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://favoritespage.us/">
+<meta property="og:title" content="Favorites — your favorites, on every device. No account.">
+<meta property="og:description" content="A fast, private speed-dial page synced with a single token instead of a login. Free and open source.">
+<meta name="theme-color" content="#0c0f12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%238ab4f8' d='M12 1.8l3 6.7 7.2.7-5.4 4.9 1.6 7.1-6.4-3.8-6.4 3.8 1.6-7.1L1.8 9.2l7.2-.7z'/%3E%3C/svg%3E">
+<!-- Privacy-friendly, cookieless analytics via the self-hosted Plausible
+     instance — the only external dependency this page loads. Register the
+     favoritespage.us domain in Plausible or events are silently discarded. -->
+<script defer data-domain="favoritespage.us" src="https://plausible.thompsonblack.us/js/script.outbound-links.tagged-events.js"></script>
+<style>
+  :root {
+    --bg: #0c0f12;
+    --bg-raised: #12161b;
+    --fg: #e8eaed;
+    --fg-dim: #9aa0a6;
+    --card: rgba(255, 255, 255, 0.045);
+    --card-hover: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.09);
+    --accent: #8ab4f8;
+    --accent-2: #a78bfa;
+    --good: #36d8a4;
+    --danger: #f28b82;
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- nav ---------- */
+
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(12, 15, 18, 0.82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav .wrap {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    height: 60px;
+  }
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--fg);
+  }
+  .wordmark:hover { text-decoration: none; }
+  .wordmark .star { color: var(--accent); font-size: 19px; }
+  .navlinks {
+    display: flex;
+    gap: 22px;
+    margin-left: auto;
+    font-size: 14px;
+  }
+  .navlinks a { color: var(--fg-dim); }
+  .navlinks a:hover { color: var(--fg); text-decoration: none; }
+
+  .btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .btn:hover { background: var(--card-hover); text-decoration: none; }
+  .btn.primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: #0c1524;
+  }
+  .btn.primary:hover { background: #a5c6fa; }
+  .btn.small { padding: 8px 14px; font-size: 13px; border-radius: 8px; }
+  .btn:disabled { opacity: 0.6; cursor: default; }
+
+  nav .btn { margin-left: auto; }
+  nav .navlinks + .btn { margin-left: 0; }
+
+  /* ---------- hero ---------- */
+
+  .hero {
+    position: relative;
+    padding: clamp(64px, 9vw, 110px) 0 clamp(40px, 6vw, 72px);
+    text-align: center;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: -40% -20% auto;
+    height: 90%;
+    background:
+      radial-gradient(40% 55% at 30% 40%, rgba(138, 180, 248, 0.13), transparent 70%),
+      radial-gradient(35% 50% at 72% 30%, rgba(167, 139, 250, 0.10), transparent 70%);
+    pointer-events: none;
+  }
+  .hero > .wrap { position: relative; }
+
+  .hero h1 {
+    margin: 0 auto 18px;
+    max-width: 17ch;
+    font-size: clamp(2.3rem, 6vw, 3.8rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero .sub {
+    margin: 0 auto 30px;
+    max-width: 56ch;
+    font-size: clamp(1.02rem, 2vw, 1.2rem);
+    color: var(--fg-dim);
+  }
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .cta-row .btn { padding: 13px 26px; font-size: 16px; border-radius: 12px; }
+  .fineprint { font-size: 13px; color: var(--fg-dim); }
+  .fineprint span { margin: 0 8px; }
+
+  /* ---------- app mockup (pure CSS, honest to the real UI) ---------- */
+
+  .mock {
+    margin: clamp(36px, 6vw, 60px) auto 0;
+    max-width: 720px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: #111418;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(138, 180, 248, 0.06);
+    text-align: left;
+    overflow: hidden;
+  }
+  .mock .bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-raised);
+  }
+  .mock .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.14); }
+  .mock .addr {
+    margin: 0 auto;
+    padding: 3px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    color: var(--fg-dim);
+  }
+  .mock .inner { padding: 22px clamp(14px, 4vw, 30px) 28px; }
+  .mock .searchpill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 420px;
+    margin: 0 auto 18px;
+    padding: 11px 18px;
+    border-radius: 999px;
+    background: #1d2126;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--fg-dim);
+    font-size: 14px;
+  }
+  .mock .chips { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .mock .chip {
+    padding: 5px 13px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    color: var(--fg);
+    text-transform: capitalize;
+  }
+  .mock .chip.on { background: var(--accent); color: #0c1524; font-weight: 600; }
+  .mock .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 10px;
+  }
+  .mock .t {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 6px 10px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    text-align: center;
+  }
+  .mock .a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { padding: clamp(48px, 8vw, 90px) 0; }
+  section.alt { background: var(--bg-raised); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+  .kicker {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h2 {
+    margin: 0 0 12px;
+    font-size: clamp(1.6rem, 3.6vw, 2.2rem);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .lede { margin: 0 0 36px; max-width: 60ch; color: var(--fg-dim); }
+
+  /* features */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    padding: 22px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .card svg { color: var(--accent); margin-bottom: 12px; }
+  .card h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .card p { margin: 0; font-size: 14px; color: var(--fg-dim); }
+
+  /* steps */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    counter-reset: step;
+  }
+  .step {
+    position: relative;
+    padding: 24px 20px 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    margin-bottom: 12px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: #0c1524;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .step p { margin: 0; font-size: 14px; color: var(--fg-dim); }
+
+  .callout {
+    margin-top: 26px;
+    padding: 20px 22px;
+    border: 1px solid rgba(138, 180, 248, 0.35);
+    border-radius: var(--radius);
+    background: rgba(138, 180, 248, 0.07);
+    font-size: 14.5px;
+  }
+  .callout strong { color: var(--accent); }
+
+  /* ---------- token portal ---------- */
+
+  .portal {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: clamp(26px, 5vw, 40px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--bg-raised);
+    text-align: center;
+  }
+  .portal h2 { margin-bottom: 8px; }
+  .portal .lede { margin: 0 auto 24px; }
+  .portal .already { margin-top: 18px; font-size: 13.5px; color: var(--fg-dim); }
+
+  #signupError {
+    margin: 16px auto 0;
+    max-width: 46ch;
+    padding: 12px 16px;
+    border: 1px solid rgba(242, 139, 130, 0.4);
+    border-radius: 10px;
+    background: rgba(242, 139, 130, 0.08);
+    color: var(--danger);
+    font-size: 14px;
+  }
+
+  #tokenResult { text-align: left; }
+  #tokenResult .once {
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(54, 216, 164, 0.12);
+    border: 1px solid rgba(54, 216, 164, 0.4);
+    color: var(--good);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tokenrow {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin: 6px 0 4px;
+  }
+  .tokenbox {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #0c0f12;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+  .tokenmeta { font-size: 13px; color: var(--fg-dim); margin: 10px 0 0; }
+  .tokenmeta code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--fg); }
+  #tokenResult ol {
+    margin: 18px 0 0;
+    padding-left: 22px;
+    font-size: 14.5px;
+  }
+  #tokenResult ol li { margin-bottom: 8px; }
+  #tokenResult .warn {
+    margin: 18px 0 0;
+    padding: 12px 16px;
+    border: 1px solid rgba(242, 139, 130, 0.4);
+    border-radius: 10px;
+    background: rgba(242, 139, 130, 0.07);
+    font-size: 13.5px;
+  }
+  #tokenResult .warn strong { color: var(--danger); }
+  #tokenResult .row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+  /* ---------- faq ---------- */
+
+  .faq { max-width: 760px; }
+  details {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    margin-bottom: 10px;
+    padding: 0 18px;
+  }
+  summary {
+    cursor: pointer;
+    padding: 15px 0;
+    font-weight: 600;
+    font-size: 15px;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "+"; color: var(--accent); font-weight: 700; width: 14px; }
+  details[open] summary::before { content: "–"; }
+  details p { margin: 0 0 16px 24px; font-size: 14px; color: var(--fg-dim); }
+
+  /* ---------- self-host ---------- */
+
+  .selfhost {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 30px;
+    align-items: center;
+  }
+  @media (max-width: 760px) { .selfhost { grid-template-columns: 1fr; } }
+  pre.code {
+    margin: 0;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #0c0f12;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: var(--fg);
+  }
+  pre.code .c { color: var(--fg-dim); }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 34px 0 44px;
+    font-size: 13.5px;
+    color: var(--fg-dim);
+  }
+  footer .wrap {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  footer a { color: var(--fg-dim); }
+  footer a:hover { color: var(--fg); }
+  footer .wordmark { font-size: 15px; margin-right: auto; }
+
+  @media (max-width: 719px) {
+    .navlinks { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="wordmark" href="/"><span class="star" aria-hidden="true">&#9733;</span>Favorites</a>
+    <div class="navlinks">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/MichalAFerber/favorites.mykk.us">GitHub</a>
+    </div>
+    <a class="btn primary small" href="#get-token">Get a token</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Your favorites. Every&nbsp;device. <span class="grad">No&nbsp;account.</span></h1>
+    <p class="sub">Favorites is a fast, private speed-dial page for everything you open daily — sites, dashboards, even local files. One token syncs it everywhere. No email, no password, no tracking.</p>
+    <div class="cta-row">
+      <a class="btn primary plausible-event-name=cta-hero" href="#get-token">Get your free token</a>
+      <a class="btn" href="https://favorites.mykk.us">Open the app &#8594;</a>
+    </div>
+    <p class="fineprint">Free<span>&#183;</span>Open source (MIT)<span>&#183;</span>Works without sync, too</p>
+
+    <div class="mock" aria-hidden="true">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="addr">favorites.mykk.us</span>
+      </div>
+      <div class="inner">
+        <div class="searchpill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+          Search Google
+        </div>
+        <div class="chips">
+          <span class="chip on">Home</span><span class="chip">work</span><span class="chip">homelab</span><span class="chip">mobile</span>
+        </div>
+        <div class="grid">
+          <div class="t"><span class="a" style="background:hsl(210,45%,45%)">M</span>Mail</div>
+          <div class="t"><span class="a" style="background:hsl(25,45%,45%)">C</span>Calendar</div>
+          <div class="t"><span class="a" style="background:hsl(270,45%,45%)">G</span>GitHub</div>
+          <div class="t"><span class="a" style="background:hsl(150,45%,45%)">H</span>Homelab</div>
+          <div class="t"><span class="a" style="background:hsl(330,45%,45%)">N</span>NAS</div>
+          <div class="t"><span class="a" style="background:hsl(105,45%,45%)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>Tax Docs</div>
+          <div class="t"><span class="a" style="background:hsl(45,45%,45%)">R</span>Recipes</div>
+          <div class="t"><span class="a" style="background:hsl(190,45%,45%)">S</span>Status</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <p class="kicker">Features</p>
+    <h2>Everything a start page should do. Nothing it shouldn't.</h2>
+    <p class="lede">No framework, no build step, no database, no login screen — one small page that loads instantly and stays out of your way.</p>
+    <div class="cards">
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+        <h3>One token, every device</h3>
+        <p>Paste your sync token once per device and your favorites, pages, and settings converge everywhere. Leave it blank and the app works fully offline-local.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z"/></svg>
+        <h3>Private by design</h3>
+        <p>No email, no name, no password. Your token is your whole identity — the server stores only its hash and your one small document. Nobody can see anyone else's data.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L20 10l-5 3.6 1.9 6.4L12 16l-4.9 4 1.9-6.4L4 10l6.1-1.4z"/></svg>
+        <h3>Icons that just work</h3>
+        <p>Tiles resolve real product logos first, then favicons, then a colored letter — automatically, through a privacy-preserving proxy. Or paste any icon URL you like.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <h3>Pages for every context</h3>
+        <p>Group tiles into pages — work, homelab, mobile — switched with a chip bar or linked directly with <code>?p=</code>. Each device can open to its own default page.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <h3>Local files too</h3>
+        <p>Add <code>file:///</code> paths — or just paste <code>C:\</code> and network paths — and get folder tiles beside your sites. A click hands you the path, ready for the address bar.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M4 19h16"/></svg>
+        <h3>Bring your bookmarks</h3>
+        <p>Import a browser bookmarks file and folders become pages; import and export the whole document as JSON any time. Merges are deduplicated — nothing gets overwritten.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.4A7 7 0 0 1 12.4 3z"/></svg>
+        <h3>Make it yours</h3>
+        <p>Dark or light theme, separate desktop and mobile wallpapers, background color, and per-page sorting — alphabetical or drag-anywhere manual order.</p>
+      </div>
+      <div class="card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <h3>Open source</h3>
+        <p>MIT licensed, a single HTML file plus one tiny Worker. Read every line in minutes — or deploy your own copy on Cloudflare's free tier.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="how">
+  <div class="wrap">
+    <p class="kicker">How it works</p>
+    <h2>Set up in under a minute</h2>
+    <p class="lede">There is nothing to install and no form to fill in. A token takes the place of an entire account system.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Get your token</h3>
+        <p>One click below generates a random token — that token <em>is</em> your identity. Save it in your password manager like the key it is.</p>
+      </div>
+      <div class="step">
+        <h3>Paste it in the app</h3>
+        <p>Open <a href="https://favorites.mykk.us">favorites.mykk.us</a> &#8594; Settings (&#9881;) &#8594; Sync, paste the token, save. Do the same on your phone, laptop, and work machine.</p>
+      </div>
+      <div class="step">
+        <h3>Add favorites anywhere</h3>
+        <p>Every device now shows the same tiles, pages, and settings — newest change wins. Set it as your browser's new-tab or home page and you're done.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <strong>Why a token instead of a login?</strong> Because then we never need your email, can't profile you, and have nothing about you to leak. The server keeps a hash of the token and one small JSON document — that's the entire "account".
+    </div>
+  </div>
+</section>
+
+<section id="get-token">
+  <div class="wrap">
+    <div class="portal">
+      <p class="kicker">Self-service</p>
+      <h2>Get your token</h2>
+      <p class="lede">Free, instant, and shown exactly once. A small number of tokens are issued per day to keep the free instance healthy.</p>
+      <div id="signupStart">
+        <button class="btn primary plausible-event-name=signup" id="signupBtn" type="button">Generate my token</button>
+        <p class="already">Already have one? Just open <a href="https://favorites.mykk.us">the app</a> and paste it under Settings &#8594; Sync.</p>
+      </div>
+      <div id="signupError" hidden></div>
+      <div id="tokenResult" hidden>
+        <span class="once">&#10003; Your token — shown once, save it now</span>
+        <div class="tokenrow">
+          <div class="tokenbox" id="tokenBox"></div>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="copyToken" type="button">Copy token</button>
+          <a class="btn" href="https://favorites.mykk.us" id="openApp">Open Favorites &#8594;</a>
+        </div>
+        <p class="tokenmeta">Account id: <code id="userIdBox"></code> — safe to mention if you ever need help; your token is the secret, this isn't.</p>
+        <ol>
+          <li><strong>Save the token in your password manager</strong> — it cannot be shown again.</li>
+          <li>Open <a href="https://favorites.mykk.us">favorites.mykk.us</a> &#8594; Settings (&#9881;) &#8594; Sync &#8594; paste &#8594; Save.</li>
+          <li>Repeat step 2 on every device you want in sync.</li>
+        </ol>
+        <p class="warn"><strong>No recovery.</strong> There is no email on file, so a lost token can't be reset — that's the privacy trade. A new token is always free, but it starts empty (Settings &#8594; Data &#8594; Export makes backups easy).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="faq">
+  <div class="wrap">
+    <p class="kicker">FAQ</p>
+    <h2>Questions, answered</h2>
+    <div class="faq" style="margin-top: 30px">
+      <details>
+        <summary>Is it really free?</summary>
+        <p>Yes. The hosted instance runs comfortably on Cloudflare's free tier, so a limited number of new tokens are issued per day to keep it that way. If today's are gone, come back tomorrow — or self-host in ten minutes.</p>
+      </details>
+      <details>
+        <summary>What do you store about me?</summary>
+        <p>A SHA-256 hash of your token and one JSON document (your favorites and settings), capped at 100&nbsp;KB. No email, no name, no IP logs tied to your data, no cookies. Analytics is a self-hosted, cookieless Plausible instance that counts page views, not people.</p>
+      </details>
+      <details>
+        <summary>What if I lose my token?</summary>
+        <p>It can't be recovered or reset — there's no identity on file to verify you with. Keep it in a password manager, and use Settings &#8594; Data &#8594; Export for occasional backups. With a backup, a fresh token plus one import puts everything back.</p>
+      </details>
+      <details>
+        <summary>How do local file:// tiles work?</summary>
+        <p>Add any <code>file:///</code> URL — or paste a plain <code>C:\</code>, network, or Unix path and it's converted for you. Browsers don't let a web page open <code>file://</code> links directly, so clicking a file tile copies the location for pasting into the address bar (with a local-links browser extension installed, the click opens it directly).</p>
+      </details>
+      <details>
+        <summary>Can I use it without syncing?</summary>
+        <p>Yes — without a token the app is fully functional and keeps everything in your browser's local storage. Add a token later and your local favorites sync up as-is.</p>
+      </details>
+      <details>
+        <summary>Can I run my own?</summary>
+        <p>Absolutely. It's MIT licensed: one Worker, one KV namespace, no build step. <code>wrangler deploy</code> and you're live on your own domain — the <a href="https://github.com/MichalAFerber/favorites.mykk.us">README</a> walks through it.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap selfhost">
+    <div>
+      <p class="kicker">Self-host</p>
+      <h2>Yours to run, too</h2>
+      <p class="lede" style="margin-bottom:18px">The entire product is a single HTML file and a ~200-line Worker on Cloudflare's free tier. Fork it, audit it, make it yours.</p>
+      <a class="btn" href="https://github.com/MichalAFerber/favorites.mykk.us">View on GitHub &#8594;</a>
+    </div>
+    <pre class="code"><span class="c"># one KV namespace + one deploy = your own instance</span>
+wrangler kv namespace create favorites-state
+cd favorites &amp;&amp; wrangler deploy
+./issue-token.sh you   <span class="c"># prints your token once</span></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="wordmark" href="/"><span class="star" aria-hidden="true">&#9733;</span>Favorites</a>
+    <a href="https://favorites.mykk.us">Open the app</a>
+    <a href="https://github.com/MichalAFerber/favorites.mykk.us">GitHub</a>
+    <a href="https://github.com/MichalAFerber/favorites.mykk.us/blob/main/LICENSE">MIT License</a>
+    <a href="https://techguywithabeard.com">TechGuyWithABeard</a>
+    <span>&#169; <span id="year">2026</span> Michal Ferber</span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+document.getElementById("year").textContent = new Date().getFullYear();
+
+/* ---------- self-service signup ---------- */
+
+const $ = (id) => document.getElementById(id);
+
+$("signupBtn").addEventListener("click", async () => {
+  const btn = $("signupBtn");
+  btn.disabled = true;
+  btn.textContent = "Generating\u2026";
+  $("signupError").hidden = true;
+  try {
+    const res = await fetch("/api/signup", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.token) {
+      $("tokenBox").textContent = data.token;
+      $("userIdBox").textContent = data.userId || "";
+      $("signupStart").hidden = true;
+      $("tokenResult").hidden = false;
+      return;
+    }
+    showError(data.message || "Something went wrong \u2014 please try again.");
+  } catch {
+    showError("Network error \u2014 please check your connection and try again.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generate my token";
+  }
+});
+
+function showError(msg) {
+  const el = $("signupError");
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+$("copyToken").addEventListener("click", async () => {
+  const token = $("tokenBox").textContent;
+  try {
+    await navigator.clipboard.writeText(token);
+    $("copyToken").textContent = "Copied \u2713";
+  } catch {
+    // Clipboard API can be denied — the box is user-select: all, so a tap
+    // selects the whole token for manual copy.
+    const range = document.createRange();
+    range.selectNodeContents($("tokenBox"));
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    $("copyToken").textContent = "Press Ctrl/Cmd-C";
+  }
+  setTimeout(() => { $("copyToken").textContent = "Copy token"; }, 2500);
+});
+</script>
+</body>
+</html>
