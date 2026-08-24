@@ -2,32 +2,38 @@
 
 A fast, self-hosted favorites (speed-dial) page that syncs across devices. One Cloudflare Worker serves a single-file frontend and a tiny authenticated state API backed by Workers KV. No framework, no build step, no database, no accounts.
 
-**Live instance:** https://favorites.mykk.us
+**Live instance:** https://favorites.mykk.us · **Marketing site & self-service tokens:** https://favoritespage.us
 
 ## Features
 
 - **Speed-dial grid** — add a name and a URL, get a tile. Bare domains work; `example.com` becomes `https://example.com` automatically, in both the add and edit dialogs.
+- **Local files & folders** — `file:///` URLs are first-class, and pasted local paths (`C:\Users\me`, `\\server\share`, `/home/me`) convert automatically. File tiles get a folder icon, and because browsers refuse to open `file://` links from a web page, clicking one copies the location for pasting into the address bar (with a local-links extension installed, the click simply opens it). Bookmark imports keep their `file://` entries too.
 - **Icons that just work** — a same-origin icon proxy resolves each tile through [Dashboard Icons](https://dashboardicons.com) (high-quality product logos, matched by host and by the shortcut's name), then DuckDuckGo's favicon service (a privacy choice over Google's), then the site's own favicon, then a colored letter-avatar — always returning an image, so there are no `404`s in the console. Any favorite can also set an explicit **Icon URL** (icons8, simpleicons, any image CDN) that overrides the whole chain.
 - **Pages** — group tiles onto named pages via `?p=homelab`; a chip bar switches between them and the bare URL shows the main page. Page assignment is a per-favorite field; a tab-style **Home** chip always gets you back.
 - **Sort your way** — tiles are alphabetical by default, or switch a page to **manual** with the header toggle and long-press-drag tiles into any order. Sort mode is remembered per page and synced.
 - **Open how you like** — plain click opens in place; **Ctrl/Cmd-click** a new tab, **Shift-click** a new window, and right-click gives the normal browser menu.
 - **Long-press to edit or delete** — 500 ms hold on any tile. Deletion uses a two-tap confirm (no browser `confirm()` dialogs).
 - **Themes and backdrop** — dark or light theme, an optional background color, and separate **desktop and mobile wallpapers** (screens under 800px get the mobile image, live on rotate/resize).
-- **Responsive layout** — tiles use large icons in a grid that packs as many per row as fit, dropping to exactly **three per row on portrait phones** (under 500px). The mobile wallpaper has its own, wider breakpoint (under 800px), so a phone in landscape keeps its wallpaper while switching to the denser grid.
+- **Responsive layout** — tiles use large icons in a grid that packs as many per row as fit, dropping to exactly **three per row on portrait phones** (under 500px). The mobile wallpaper has its own, wider breakpoint (under 800px), so a phone in landscape keeps its wallpaper while switching to the denser grid. Tile labels wrap to **two lines** before truncating with an ellipsis (hover shows the full name).
 - **Import & export** — Settings → Data exports the full document as JSON, and imports either that JSON or a browser bookmarks HTML file (folders become pages). Imports merge and de-duplicate; nothing is overwritten.
 - **Cross-device sync, one field** — paste your sync token under Settings → Sync and every device converges on the same favorites and settings. Leave it blank and the app is fully functional local-only.
 - **Per-device default page** — each device can open to a different page (e.g. a `mobile` page on your phone) without affecting the synced document.
-- **Multi-user, invite-only** — each user has their own token and their own isolated document. There is no signup, no login page, and no way for users to see each other's data.
+- **Multi-user, no accounts** — each user has their own token and their own isolated document. There is no login page and no way for users to see each other's data. Tokens come from the owner (`issue-token.sh`) or, rate-limited, from the self-service portal at [favoritespage.us](https://favoritespage.us).
 
 ## How it is built
 
 ```
-favorites/
+favorites/            # the app — favorites.mykk.us
 ├── public/
 │   └── index.html    # the entire frontend: HTML + CSS + JS in one file
 ├── worker.js         # /api/state handler + auth, /icon proxy
 ├── issue-token.sh    # issue / map / revoke user tokens
 └── wrangler.toml     # bindings, assets dir, custom domain route
+marketing/            # the marketing site — favoritespage.us
+├── public/
+│   └── index.html    # single-file marketing page + token portal UI
+├── worker.js         # POST /api/signup: self-service token issuance
+└── wrangler.toml     # same KV namespace, favoritespage.us custom domain
 ```
 
 - **Frontend** — one HTML file, inline CSS and JS, no bundler, no npm, no CDN dependencies. Cloudflare serves it as a static asset before the Worker is ever invoked.
@@ -44,7 +50,25 @@ favorites/
 - **Auth** — the bearer token *is* the identity. The Worker hashes it (SHA-256) and looks up `token:<hash>` → `userId` in KV; the user's document lives at `state:<userId>`. Plaintext tokens are never stored server-side, and the sync token lives only in each device's local storage — never inside the synced document.
 - **State document** — one JSON blob per user: `shortcuts` (each with a name, url, and optional `iconUrl` / `page`) plus `settings` (theme, desktop and mobile wallpaper URLs, background color, and per-page sort mode). The device-local default page is deliberately *not* in it.
 - **Sync model** — last-write-wins on the document's `updatedAt`, whole document, per user. Two of *your own* devices editing offline resolve to the newest write; different users can never touch each other's documents. No merging, no CRDTs — deliberately.
-- **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine.
+- **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine. (The marketing worker adds short-lived `signup:*` throttle keys — see below.)
+
+## The marketing site (favoritespage.us)
+
+`marketing/` is a second, independent Worker on the same pattern (static single-file page served as an asset, tiny API behind it) bound to the **same KV namespace**, so a token issued there works at favorites.mykk.us immediately.
+
+```
+POST /api/signup   → 200 {"ok":true,"userId":"u…","token":"…"}   issue a token (shown once)
+                   → 429 rate-limited (per-IP cooldown, default 1/hour)
+                   → 503 closed (daily cap reached, or signups paused)
+```
+
+Abuse controls, because self-service issuance shares the KV free tier's 1,000 writes/day with sync:
+
+- **Per-IP cooldown** — one signup per IP per `SIGNUP_IP_COOLDOWN_SECS` (default 1 hour), tracked as `signup:ip:<sha256(day|ip)>` so raw IPs are never stored and markers don't link across days. Rejected calls burn zero KV writes.
+- **Global daily cap** — at most `SIGNUP_DAILY_CAP` tokens per UTC day (default 25, ≤ 75 KV writes), tracked as `signup:count:<date>`. When it's reached the portal says so and sync is unaffected.
+- **Kill switch** — set `SIGNUP_DAILY_CAP = "0"` in `marketing/wrangler.toml` and redeploy to pause signups entirely (back to invite-only); the portal shows a friendly closed message.
+
+Self-service users get a random `u<10 hex>` user id (shown on the page as a support handle — the token stays the only secret). Owner-issued tokens via `issue-token.sh` work exactly as before.
 
 ## Using the app
 
@@ -77,7 +101,7 @@ curl -s -H "Authorization: Bearer $TOKEN" https://<your-domain>/api/state  # nul
 
 ## Maintaining users
 
-All user management is `favorites/issue-token.sh`, run by the owner from the `favorites/` directory. Issuing a token *is* creating a user; there is nothing else to set up.
+Owner-side user management is `favorites/issue-token.sh`, run from the `favorites/` directory. Issuing a token *is* creating a user; there is nothing else to set up. Self-service users from [favoritespage.us](https://favoritespage.us) appear in KV the same way (`token:<hash>` → `u<hex>`), and every command below applies to them identically.
 
 ```bash
 ./issue-token.sh alice              # new user: generates a token, prints it ONCE,
