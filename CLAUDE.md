@@ -7,10 +7,10 @@ Runbook for Claude Code. Read this before touching anything.
 Multi-user favorites/speed-dial page. One Cloudflare Worker serves a static
 single-file HTML app and a tiny token-authenticated state API backed by
 Workers KV. No framework, no build step, no database, no accounts or login
-UI. Keep it that way. The marketing site at favoritespage.us, with its
-rate-limited self-service token issuance, is a separate Worker in its own
-repo (MichalAFerber/favoritespage) sharing this KV namespace — see
-"Marketing site" below.
+UI. Keep it that way. Sync is the PAID tier (Favorites Pro, $3/yr): tokens
+are issued by favoritespage.us, a separate Worker in its own repo
+(MichalAFerber/favoritespage) sharing this KV namespace — see below. The app
+without a token is the free tier and must stay fully functional.
 
 - **Live URL:** https://favorites.mykk.us
 - **Marketing site:** https://favoritespage.us (repo MichalAFerber/favoritespage)
@@ -57,12 +57,14 @@ The token is the entire identity: the Worker hashes it (SHA-256), looks up
 `token:<hash>` in KV to get the userId, and reads/writes `state:<userId>`.
 There is no other user management — issuing a token creates a user.
 
-Marketing Worker (favoritespage.us — repo MichalAFerber/favoritespage,
-its own CLAUDE.md is the authority): shares this KV namespace, issuing
-`token:<hash>` → `u<10 hex>` mappings via a rate-capped `POST /api/signup`
-plus its own TTL'd `signup:*` throttle keys — never `state:*`. Expect those
-key shapes when inspecting the namespace, and count its capped writes
-(≤ ~75/day by default) against the free tier's 1,000/day.
+Licensing Worker (favoritespage.us — repo MichalAFerber/favoritespage, its
+own CLAUDE.md is the authority): shares this KV namespace and writes
+`token:<hash>` → `u<10 hex>` mappings when a Pro subscriber generates or
+rotates a token in its portal, deleting them on cancellation or expiry —
+never `state:*`, so a resubscribe resumes with every favorite intact. Expect
+that key shape when inspecting the namespace. Its free-signup endpoint is
+retired; tokens now come from Stripe checkout ($3/yr, 30-day trial) or from
+issue-token.sh here.
 
 State document shape (per user):
 
@@ -176,6 +178,10 @@ users is fine; watch this before inviting more.
   `wallpaperUrlMobile` when set (falling back to the desktop wallpaper),
   via a matchMedia listener so rotation/resize re-applies live.
 - Page must remain fully functional with sync unconfigured (local-only mode).
+  That local-only mode IS the free tier: the Settings → Sync hint links
+  favoritespage.us (Favorites Pro, $3/yr) as the only place a token comes
+  from now. Keep it a one-line hint — this instance is noindex and not a
+  storefront; the marketing host is.
 - Multiple pages: `?p=homelab` filters the grid to that page's shortcuts; no
   param = main page. Filtering is display-only — pages live inside the one
   synced document, and page names are normalized to lowercase.
