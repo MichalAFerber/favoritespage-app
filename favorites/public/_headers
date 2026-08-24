@@ -1,0 +1,9 @@
+# This host is the owner's personal live instance of Favorites, not the
+# product's marketing site — that is favoritespage.us, which is the host that
+# should rank. Keep this instance out of search results.
+#
+# DS §11: de-index with X-Robots-Tag, never `Disallow: /` in robots.txt. A path
+# blocked by robots.txt is never crawled, so the crawler never sees the
+# noindex and the URL can still surface as a bare link.
+/*
+  X-Robots-Tag: noindex
