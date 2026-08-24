@@ -261,6 +261,7 @@
   }
 
   .hint { font-size: 12px; color: var(--fg-dim); margin: 4px 0 0; }
+  .hint a { color: var(--accent); }
 
   .row {
     display: flex;
@@ -367,6 +368,7 @@
 
   <h3>Sync</h3>
   <p class="hint">Your token is your identity — stored only on this device, never included in synced data. Leave blank for local-only mode.</p>
+  <p class="hint">No token? Favorites is free forever without one. Syncing every device is <a href="https://favoritespage.us/#pricing" target="_blank" rel="noopener">Pro — $3/year, 30-day free trial</a>.</p>
   <label for="setToken">Sync token</label>
   <input type="password" id="setToken" autocomplete="off">
   <p class="hint" id="syncStatus"></p>
