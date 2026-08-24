@@ -1,0 +1,5 @@
+# Crawling is deliberately allowed so crawlers can see the `X-Robots-Tag:
+# noindex` header in _headers — that is what removes this personal instance
+# from search results. The product's indexable host is favoritespage.us.
+User-agent: *
+Allow: /
