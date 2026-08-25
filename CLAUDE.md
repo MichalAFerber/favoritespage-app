@@ -16,7 +16,9 @@ without a token is the free tier and must stay fully functional.
   2026-08-25 (owner ruling). The old host stays as a 301; the repo keeps its
   name, which is now historical rather than descriptive.
 - **Marketing site:** https://favoritespage.us (repo MichalAFerber/favoritespage)
-- **Worker name:** `favorites`
+- **Worker name:** `favoritespage-app` — renamed from `favorites-mykk-us` with the
+  host move. (This line previously read `favorites`, which was never the deployed
+  name.) Both bound the same KV namespace, so the rename moved no data.
 - **Cloudflare account:** TechGuyWithABeard (`8a0d49b1f3fdcdadec135562ec8a4fdc`)
   — the CF credentials on this machine can see multiple accounts (GEA LLC,
   ThompsonBlack LLC). **Only ever operate in the TGWAB account.**
