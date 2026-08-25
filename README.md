@@ -2,7 +2,7 @@
 
 A fast, self-hosted favorites (speed-dial) page that syncs across devices. One Cloudflare Worker serves a single-file frontend and a tiny authenticated state API backed by Workers KV. No framework, no build step, no database, no accounts.
 
-**Live instance:** https://favorites.mykk.us · **Marketing site & self-service tokens:** https://favoritespage.us
+**Live instance:** https://app.favoritespage.us · **Marketing site & self-service tokens:** https://favoritespage.us
 
 ## Features
 

@@ -1,4 +1,4 @@
-# CLAUDE.md — favorites.mykk.us
+# CLAUDE.md — favorites.mykk.us (app.favoritespage.us)
 
 Runbook for Claude Code. Read this before touching anything.
 
@@ -12,7 +12,9 @@ are issued by favoritespage.us, a separate Worker in its own repo
 (MichalAFerber/favoritespage) sharing this KV namespace — see below. The app
 without a token is the free tier and must stay fully functional.
 
-- **Live URL:** https://favorites.mykk.us
+- **Live URL:** https://app.favoritespage.us — moved from `favorites.mykk.us`
+  2026-08-25 (owner ruling). The old host stays as a 301; the repo keeps its
+  name, which is now historical rather than descriptive.
 - **Marketing site:** https://favoritespage.us (repo MichalAFerber/favoritespage)
 - **Worker name:** `favorites`
 - **Cloudflare account:** TechGuyWithABeard (`8a0d49b1f3fdcdadec135562ec8a4fdc`)
@@ -129,9 +131,10 @@ one; state is untouched because it keys on userId, not the token.
 ## Verify after deploy
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://favorites.mykk.us/            # 200
-curl -s -o /dev/null -w '%{http_code}\n' https://favorites.mykk.us/api/state   # 401
-curl -s -H "Authorization: Bearer $TOKEN" https://favorites.mykk.us/api/state  # JSON or null
+curl -s -o /dev/null -w '%{http_code}\n' https://app.favoritespage.us/            # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://app.favoritespage.us/api/state   # 401
+curl -s -o /dev/null -w '%{http_code}\n' https://favorites.mykk.us/            # 301 -> app.
+curl -s -H "Authorization: Bearer $TOKEN" https://app.favoritespage.us/api/state  # JSON or null
 ```
 
 ## Ops
@@ -222,7 +225,8 @@ users is fine; watch this before inviting more.
   architecture is wrong — stop and flag it.
 - Never commit or echo a sync token. Plaintext tokens exist only in users'
   password managers and devices; the server stores only SHA-256 hashes.
-- Don't touch zones/DNS outside `favorites.mykk.us` and `favoritespage.us`.
+- Don't touch zones/DNS outside `favorites.mykk.us` and `favoritespage.us`
+  (`app.favoritespage.us` is inside the latter).
   Never operate in the GEA or ThompsonBlack accounts.
 - Don't add auth complexity (OAuth, accounts, sessions, login UI). Per-user
   bearer tokens are the design, not a placeholder. The one sanctioned
