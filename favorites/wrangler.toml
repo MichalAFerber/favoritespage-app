@@ -1,4 +1,7 @@
-name = "favorites-mykk-us"
+# Renamed with the host move (owner ruling 2026-08-25). Deploying under a new name
+# creates a SECOND Worker; favorites-mykk-us keeps serving the old host until it is
+# deleted, so there is no gap. Both bind the same KV namespace, so no data moves.
+name = "favoritespage-app"
 main = "worker.js"
 account_id = "8a0d49b1f3fdcdadec135562ec8a4fdc" # TechGuyWithABeard — never another account
 compatibility_date = "2025-10-01"
@@ -12,8 +15,12 @@ directory = "./public"
 binding = "SHORTCUTS_KV"
 id = "71257de3aef04824ad72e7597d0ed8ac"
 
+# Owner ruling 2026-08-25: the app serves app.favoritespage.us, so the product and
+# its app sit on one zone. favorites.mykk.us stays alive as a 301 to this host -
+# it is the URL every existing user has bookmarked and every issued token was set
+# up against, so it must not simply stop answering.
 [[routes]]
-pattern = "favorites.mykk.us"
+pattern = "app.favoritespage.us"
 custom_domain = true
 
 # Per-user tokens live in KV (token:<sha256> → userId) — see issue-token.sh.
