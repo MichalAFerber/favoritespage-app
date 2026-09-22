@@ -6,6 +6,11 @@ main = "worker.js"
 account_id = "8a0d49b1f3fdcdadec135562ec8a4fdc" # TechGuyWithABeard — never another account
 compatibility_date = "2025-10-01"
 
+# Low-volume Worker; full sampling costs little and keeps request logs for debugging /api/state.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 # Static assets are matched before the Worker runs; worker.js only ever sees
 # /api/state in practice.
 [assets]
