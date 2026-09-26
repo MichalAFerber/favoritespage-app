@@ -154,10 +154,12 @@ users is fine; watch this before inviting more.
 ## Frontend conventions
 
 - Single file. Inline CSS + JS. No bundler, no npm, no CDN dependencies —
-  with one deliberate exception: a `<script defer>` in `<head>` loading
-  the self-hosted Plausible instance (`plausible.thompsonblack.us`) for
-  privacy-friendly, cookieless analytics. Do not remove it as "a CDN
-  dependency"; it is intentional. There is no Google Analytics.
+  with one deliberate exception: a small inline `<script>` in `<head>`
+  that loads the self-hosted Plausible instance (`plausible.thompsonblack.us`)
+  for privacy-friendly, cookieless analytics, but only when
+  `location.hostname` is `app.favoritespage.us`, so self-hosted copies send
+  it nothing. Do not remove it as "a CDN dependency"; it is intentional.
+  There is no Google Analytics.
 - All state mutations go through `persist()` — never call the cache or sync
   layer directly from a handler.
 - Tile icons come from the Worker's same-origin `/icon?host=` proxy
