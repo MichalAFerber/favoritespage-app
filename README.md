@@ -2,7 +2,7 @@
 
 A fast, self-hosted favorites (speed-dial) page that syncs across devices. One Cloudflare Worker serves a single-file frontend and a tiny authenticated state API backed by Workers KV. No framework, no build step, no database, no accounts.
 
-**Live instance:** https://app.favoritespage.us · **Marketing site & self-service tokens:** https://favoritespage.us
+**Live instance:** https://app.favoritespage.us · **Marketing site and Favorites Pro:** https://favoritespage.us
 
 ## Features
 
@@ -16,9 +16,9 @@ A fast, self-hosted favorites (speed-dial) page that syncs across devices. One C
 - **Themes and backdrop** — dark or light theme, an optional background color, and separate **desktop and mobile wallpapers** (screens under 800px get the mobile image, live on rotate/resize).
 - **Responsive layout** — tiles use large icons in a grid that packs as many per row as fit, dropping to exactly **three per row on portrait phones** (under 500px). The mobile wallpaper has its own, wider breakpoint (under 800px), so a phone in landscape keeps its wallpaper while switching to the denser grid. Tile labels wrap to **two lines** before truncating with an ellipsis (hover shows the full name).
 - **Import & export** — Settings → Data exports the full document as JSON, and imports either that JSON or a browser bookmarks HTML file (folders become pages). Imports merge and de-duplicate; nothing is overwritten.
-- **Cross-device sync, one field** — paste your sync token under Settings → Sync and every device converges on the same favorites and settings. Leave it blank and the app is fully functional local-only.
+- **Cross-device sync, one field** — paste your token into Settings → Sync → **License key** and every device converges on the same favorites and settings. Leave it blank and the app is fully functional local-only.
 - **Per-device default page** — each device can open to a different page (e.g. a `mobile` page on your phone) without affecting the synced document.
-- **Multi-user, no accounts** — each user has their own token and their own isolated document. There is no login page and no way for users to see each other's data. Tokens come from the owner (`issue-token.sh`) or, rate-limited, from the self-service portal at [favoritespage.us](https://favoritespage.us).
+- **Multi-user, no accounts** — each user has their own token and their own isolated document. There is no login page and no way for users to see each other's data. On your own instance, you issue tokens with `issue-token.sh`; on the hosted instance, the Favorites Pro license key from [favoritespage.us](https://favoritespage.us) is the token.
 
 ## How it is built
 
@@ -31,7 +31,7 @@ favorites/
 └── wrangler.toml     # bindings, assets dir, custom domain route
 ```
 
-- **Frontend** — one HTML file, inline CSS and JS, no bundler, no npm, no CDN dependencies. Cloudflare serves it as a static asset before the Worker is ever invoked.
+- **Frontend** — one HTML file, inline CSS and JS, no bundler, no npm, no CDN dependencies. Cloudflare serves it as a static asset before the Worker is ever invoked. The one external script is the Plausible analytics tag, and it loads only on `app.favoritespage.us`, so a self-hosted copy sends TGWAB's analytics nothing.
 - **API** — the Worker handles two routes:
 
   ```
@@ -45,11 +45,11 @@ favorites/
 - **Auth** — the bearer token *is* the identity. The Worker hashes it (SHA-256) and looks up `token:<hash>` → `userId` in KV; the user's document lives at `state:<userId>`. Plaintext tokens are never stored server-side, and the sync token lives only in each device's local storage — never inside the synced document.
 - **State document** — one JSON blob per user: `shortcuts` (each with a name, url, and optional `iconUrl` / `page`) plus `settings` (theme, desktop and mobile wallpaper URLs, background color, and per-page sort mode). The device-local default page is deliberately *not* in it.
 - **Sync model** — last-write-wins on the document's `updatedAt`, whole document, per user. Two of *your own* devices editing offline resolve to the newest write; different users can never touch each other's documents. No merging, no CRDTs — deliberately.
-- **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine. (The signup portal below adds short-lived `signup:*` throttle keys to the same namespace.)
+- **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine.
 
 ## The marketing site (favoritespage.us)
 
-The marketing site and self-service token portal live in their own repo, **[MichalAFerber/favoritespage](https://github.com/MichalAFerber/favoritespage)** — a second, independent Worker on the same pattern, bound to the **same KV namespace**, so a token issued there works here immediately (it writes exactly the `token:<hash>` → `userId` mapping `issue-token.sh` writes). Signups are rate-capped per IP and per day, with `SIGNUP_DAILY_CAP = "0"` as the kill switch back to invite-only; that repo's README has the details. Owner-issued tokens via `issue-token.sh` work exactly as before.
+The marketing site, Stripe checkout, and licensing for Favorites Pro (sync on the hosted instance, $3/year) live in their own repo, **[MichalAFerber/favoritespage](https://github.com/MichalAFerber/favoritespage)** — a second, independent Worker bound to the **same KV namespace**. A subscription mints a license key that is itself a token: it writes exactly the `token:<hash>` → `userId` mapping `issue-token.sh` writes, so the key works here immediately, and the mapping is deleted when the subscription ends (the user's `state:*` document is never touched). That repo's README has the details. A self-hosted instance needs none of it; you issue your own tokens with `issue-token.sh`.
 
 ## Using the app
 
@@ -57,32 +57,61 @@ The marketing site and self-service token portal live in their own repo, **[Mich
 2. In the add/edit dialog, set an optional **Page** (leave blank for the main page) and an optional **Icon URL** that overrides the auto-detected icon; clear it to revert.
 3. Use the **chip bar** to switch pages, or link straight to `?p=<page>`. The header **⇅** toggle switches the current page between alphabetical and manual order; in manual mode, long-press and drag tiles to rearrange them.
 4. **Settings (gear)** — theme, desktop and mobile wallpaper URLs, background color, this device's default page, the sync token, and **Data** (export / import).
-5. To sync a device: get a token from the owner, open Settings → Sync, paste it, save. That's the entire setup — the app always syncs against the site it was loaded from.
+5. To sync a device: get a token (from `issue-token.sh` on your own instance, or your Favorites Pro license key on the hosted one), open Settings → Sync, paste it into **License key**, and save. That's the entire setup — the app always syncs against the site it was loaded from.
 
 ## Deploying your own
 
-Prerequisites: a Cloudflare account and [wrangler](https://developers.cloudflare.com/workers/wrangler/) logged in.
+The app is MIT, and your instance issues its own tokens; the Favorites Pro subscription is only for the hosted instance. A few people fit comfortably on Cloudflare's free Workers plan.
+
+Prerequisites: a Cloudflare account, [wrangler](https://developers.cloudflare.com/workers/wrangler/) 4 logged in with `wrangler login`, and `openssl` (`issue-token.sh` uses it).
+
+1. Clone this repo and work in its `favorites/` directory. Run every command below from there, so wrangler reads `favorites/wrangler.toml`.
+
+   ```bash
+   git clone https://github.com/MichalAFerber/favoritespage-app.git
+   cd favoritespage-app/favorites
+   ```
+
+2. In `wrangler.toml`, set `account_id` to your own Cloudflare account ID, and point the `[[routes]]` `pattern` at a hostname in a zone on that account, or delete the whole `[[routes]]` block to serve from your workers.dev address. Set `account_id` before the next step: wrangler creates the namespace in the account `wrangler.toml` names.
+
+3. Create the KV namespace:
+
+   ```bash
+   wrangler kv namespace create favorites-state
+   ```
+
+   Put the id it prints in two places:
+
+   - the `id` of the existing `[[kv_namespaces]]` entry in `wrangler.toml`. Keep `binding = "SHORTCUTS_KV"`: the Worker reads only that binding, and the snippet wrangler prints suggests a different name.
+   - `NAMESPACE_ID` at the top of `issue-token.sh`, which writes token mappings to the namespace by its id.
+
+4. Deploy:
+
+   ```bash
+   wrangler deploy
+   ```
+
+5. Issue yourself a token, where `you` is a user ID of up to 32 lowercase letters, digits, hyphens, or underscores. The script prints a new token once and stores only its SHA-256 hash in KV.
+
+   ```bash
+   ./issue-token.sh you
+   ```
+
+6. Open your instance, go to Settings (⚙) → Sync, paste the token into the **License key** field, and save. Do the same on each device: the app syncs with the site it was loaded from.
+
+To check the deploy, use your hostname, or the workers.dev URL that `wrangler deploy` printed:
 
 ```bash
-# 1. Create a KV namespace and put its id (and your account id) in wrangler.toml
-wrangler kv namespace create favorites-state
-
-# 2. Point the custom domain route in wrangler.toml at a domain in your zone
-#    (or delete the [[routes]] block to use the workers.dev URL)
-
-# 3. Deploy
-cd favorites
-wrangler deploy
-
-# 4. Issue yourself a token (see below), then verify:
-curl -s -o /dev/null -w '%{http_code}\n' https://<your-domain>/            # 200
-curl -s -o /dev/null -w '%{http_code}\n' https://<your-domain>/api/state   # 401
-curl -s -H "Authorization: Bearer $TOKEN" https://<your-domain>/api/state  # null
+curl -s -o /dev/null -w '%{http_code}\n' https://<your-host>/            # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://<your-host>/api/state   # 401
+curl -s -H "Authorization: Bearer $TOKEN" https://<your-host>/api/state  # null until the first sync
 ```
+
+If you push your clone to GitHub, `.github/workflows/deploy.yml` runs on every push to `main` that changes `favorites/` or the workflow itself, and it fails without a `CLOUDFLARE_API_TOKEN` repository secret: either set that secret, or disable or delete the workflow.
 
 ## Maintaining users
 
-Owner-side user management is `favorites/issue-token.sh`, run from the `favorites/` directory. Issuing a token *is* creating a user; there is nothing else to set up. Self-service users from [favoritespage.us](https://favoritespage.us) appear in KV the same way (`token:<hash>` → `u<hex>`), and every command below applies to them identically.
+Owner-side user management is `favorites/issue-token.sh`, run from the `favorites/` directory. Issuing a token *is* creating a user; there is nothing else to set up. On the hosted instance, Favorites Pro subscribers from [favoritespage.us](https://favoritespage.us) appear in KV the same way (`token:<hash>` → `u<hex>`), and every command below applies to them identically.
 
 ```bash
 ./issue-token.sh alice              # new user: generates a token, prints it ONCE,
@@ -98,10 +127,15 @@ Owner-side user management is `favorites/issue-token.sh`, run from the `favorite
 - **Offboarding** — `--revoke` kills access immediately. To also delete their data:
 
   ```bash
-  wrangler kv key delete "state:<userId>" --namespace-id <your-namespace-id>
+  wrangler kv key delete "state:<userId>" --namespace-id <your-namespace-id> --remote
   ```
 
-- **Inspecting** — `wrangler kv key list --namespace-id <id>` shows every user and token hash; `wrangler kv key get "state:<userId>" --namespace-id <id>` shows a user's document; `wrangler tail favorites` streams live request logs.
+- **Inspecting** — `wrangler kv key list --namespace-id <id> --remote` shows every user and token hash; `wrangler kv key get "state:<userId>" --namespace-id <id> --remote` shows a user's document; `wrangler tail` streams live request logs from the Worker named in `wrangler.toml`.
+- **Keep `--remote`** — wrangler 4 runs `kv key` commands against local storage unless you pass it, so a delete without it changes nothing on Cloudflare. `issue-token.sh` already passes it.
+
+## Deviations
+
+- §8—the Plausible tag stays `defer`—`favorites/public/index.html` inserts the tag from an inline script only when `location.hostname` is `app.favoritespage.us`, so it loads async rather than `defer` (a script inserted from code cannot be deferred); a static tag would make every self-hosted copy report its visitors to TGWAB's analytics—2026-09-26—review 2026-12-25
 
 ## Credits
 

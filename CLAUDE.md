@@ -1,4 +1,4 @@
-# CLAUDE.md — favorites.mykk.us (app.favoritespage.us)
+# CLAUDE.md — favoritespage-app (app.favoritespage.us)
 
 Runbook for Claude Code. Read this before touching anything.
 
@@ -13,8 +13,8 @@ are issued by favoritespage.us, a separate Worker in its own repo
 without a token is the free tier and must stay fully functional.
 
 - **Live URL:** https://app.favoritespage.us — moved from `favorites.mykk.us`
-  2026-08-25 (owner ruling). The old host stays as a 301; the repo keeps its
-  name, which is now historical rather than descriptive.
+  2026-08-25 (owner ruling). The old host is retired: its DNS was gone by
+  2026-09-13, and the owner accepted the early retirement.
 - **Marketing site:** https://favoritespage.us (repo MichalAFerber/favoritespage)
 - **Worker name:** `favoritespage-app` — renamed from `favorites-mykk-us` with the
   host move. (This line previously read `favorites`, which was never the deployed
@@ -63,8 +63,8 @@ There is no other user management — issuing a token creates a user.
 
 Licensing Worker (favoritespage.us — repo MichalAFerber/favoritespage, its
 own CLAUDE.md is the authority): shares this KV namespace and writes
-`token:<hash>` → `u<10 hex>` mappings when a Pro subscriber generates or
-rotates a token in its portal, deleting them on cancellation or expiry —
+`token:<hash>` → `u<10 hex>` mappings when it mints a Pro license (the
+license key is the token), deleting them on cancellation or expiry —
 never `state:*`, so a resubscribe resumes with every favorite intact. Expect
 that key shape when inspecting the namespace. Its free-signup endpoint is
 retired; tokens now come from Stripe checkout ($3/yr, 30-day trial) or from
@@ -135,18 +135,20 @@ one; state is untouched because it keys on userId, not the token.
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://app.favoritespage.us/            # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://app.favoritespage.us/api/state   # 401
-curl -s -o /dev/null -w '%{http_code}\n' https://favorites.mykk.us/            # 301 -> app.
 curl -s -H "Authorization: Bearer $TOKEN" https://app.favoritespage.us/api/state  # JSON or null
 ```
 
 ## Ops
 
 ```bash
-wrangler tail favorites                                                              # live logs
-wrangler kv key list --namespace-id 71257de3aef04824ad72e7597d0ed8ac                 # list users + token hashes
-wrangler kv key get "state:<userId>" --namespace-id 71257de3aef04824ad72e7597d0ed8ac # inspect a user's state
-wrangler kv key delete "state:<userId>" --namespace-id 71257de3aef04824ad72e7597d0ed8ac # wipe one user (their clients re-seed on next push)
+wrangler tail                                                                                 # live logs (the Worker named in wrangler.toml)
+wrangler kv key list --namespace-id 71257de3aef04824ad72e7597d0ed8ac --remote                 # list users + token hashes
+wrangler kv key get "state:<userId>" --namespace-id 71257de3aef04824ad72e7597d0ed8ac --remote # inspect a user's state
+wrangler kv key delete "state:<userId>" --namespace-id 71257de3aef04824ad72e7597d0ed8ac --remote # wipe one user (their clients re-seed on next push)
 ```
+
+Keep `--remote`: wrangler 4 runs `kv key` commands against local storage
+without it, so a list returns `[]` and a delete changes nothing on Cloudflare.
 
 KV free tier allows 1,000 writes/day across all users — a handful of active
 users is fine; watch this before inviting more.
@@ -154,10 +156,12 @@ users is fine; watch this before inviting more.
 ## Frontend conventions
 
 - Single file. Inline CSS + JS. No bundler, no npm, no CDN dependencies —
-  with one deliberate exception: a `<script defer>` in `<head>` loading
-  the self-hosted Plausible instance (`plausible.thompsonblack.us`) for
-  privacy-friendly, cookieless analytics. Do not remove it as "a CDN
-  dependency"; it is intentional. There is no Google Analytics.
+  with one deliberate exception: a small inline `<script>` in `<head>`
+  that loads the self-hosted Plausible instance (`plausible.thompsonblack.us`)
+  for privacy-friendly, cookieless analytics, but only when
+  `location.hostname` is `app.favoritespage.us`, so self-hosted copies send
+  it nothing. Do not remove it as "a CDN dependency"; it is intentional.
+  There is no Google Analytics.
 - All state mutations go through `persist()` — never call the cache or sync
   layer directly from a handler.
 - Tile icons come from the Worker's same-origin `/icon?host=` proxy
@@ -227,15 +231,14 @@ users is fine; watch this before inviting more.
   architecture is wrong — stop and flag it.
 - Never commit or echo a sync token. Plaintext tokens exist only in users'
   password managers and devices; the server stores only SHA-256 hashes.
-- Don't touch zones/DNS outside `favorites.mykk.us` and `favoritespage.us`
-  (`app.favoritespage.us` is inside the latter).
+- Don't touch zones/DNS outside `favoritespage.us` (`app.favoritespage.us`
+  is inside it).
   Never operate in the GEA or ThompsonBlack accounts.
 - Don't add auth complexity (OAuth, accounts, sessions, login UI). Per-user
   bearer tokens are the design, not a placeholder. The one sanctioned
-  issuance path besides `issue-token.sh` is the capped `/api/signup` in
-  MichalAFerber/favoritespage — owner's decision, with `SIGNUP_DAILY_CAP =
-  "0"` there as the way back to invite-only. Don't add account features on
-  top here.
+  issuance path besides `issue-token.sh` is the Favorites Pro license mint in
+  MichalAFerber/favoritespage, whose license key is the token. Don't add
+  account features on top here.
 - 100 KB PUT cap (per user) stays. If a user's state outgrows it, that's a
   design conversation with the owner, not a limit bump.
 - Ask before: deleting the KV namespace, changing the route/domain, or
@@ -246,8 +249,8 @@ users is fine; watch this before inviting more.
 | Symptom | Cause / fix |
 |---|---|
 | 401 for one user | Their token has no KV mapping — revoked, never issued, or pasted with whitespace. Re-issue with `./issue-token.sh <userId>` or re-map with `--existing`. |
-| 401 for everyone | Token mappings gone from KV (namespace wiped?). Check `kv key list` for `token:` keys. |
-| Domain not resolving | Route missing — check `wrangler deploy` output created the custom domain; zone must be mykk.us in TGWAB account. |
-| "Push failed" in UI, tail shows 413 | That user's state > 100 KB. Find what bloated it (`kv key get "state:<userId>" \| wc -c`) — likely a data-URL pasted as wallpaper or icon. |
+| 401 for everyone | Token mappings gone from KV (namespace wiped?). Check `kv key list --remote` for `token:` keys. |
+| Domain not resolving | Route missing — check `wrangler deploy` output created the custom domain; zone must be favoritespage.us in the TGWAB account. |
+| "Push failed" in UI, tail shows 413 | That user's state > 100 KB. Find what bloated it (`kv key get "state:<userId>" --remote \| wc -c`) — likely a data-URL pasted as wallpaper or icon. |
 | Edits from one device vanish | Expected under last-write-wins if two of the *same user's* devices edited while one was offline. Newest `updatedAt` wins. Not a bug. Different users can never affect each other's documents. |
 | Icons blank | DuckDuckGo icon service hiccup or new TLD — fallback avatar should show; if not, check `img.onerror` wiring. Or the shortcut's `iconUrl` override points at a dead image. |
