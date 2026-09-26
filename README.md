@@ -107,6 +107,8 @@ curl -s -o /dev/null -w '%{http_code}\n' https://<your-host>/api/state   # 401
 curl -s -H "Authorization: Bearer $TOKEN" https://<your-host>/api/state  # null until the first sync
 ```
 
+If you push your clone to GitHub, `.github/workflows/deploy.yml` runs on every push to `main` that changes `favorites/` or the workflow itself, and it fails without a `CLOUDFLARE_API_TOKEN` repository secret: either set that secret, or disable or delete the workflow.
+
 ## Maintaining users
 
 Owner-side user management is `favorites/issue-token.sh`, run from the `favorites/` directory. Issuing a token *is* creating a user; there is nothing else to set up. On the hosted instance, Favorites Pro subscribers from [favoritespage.us](https://favoritespage.us) appear in KV the same way (`token:<hash>` → `u<hex>`), and every command below applies to them identically.
@@ -130,6 +132,10 @@ Owner-side user management is `favorites/issue-token.sh`, run from the `favorite
 
 - **Inspecting** — `wrangler kv key list --namespace-id <id> --remote` shows every user and token hash; `wrangler kv key get "state:<userId>" --namespace-id <id> --remote` shows a user's document; `wrangler tail` streams live request logs from the Worker named in `wrangler.toml`.
 - **Keep `--remote`** — wrangler 4 runs `kv key` commands against local storage unless you pass it, so a delete without it changes nothing on Cloudflare. `issue-token.sh` already passes it.
+
+## Deviations
+
+- §8—the Plausible tag stays `defer`—`favorites/public/index.html` inserts the tag from an inline script only when `location.hostname` is `app.favoritespage.us`, so it loads async rather than `defer` (a script inserted from code cannot be deferred); a static tag would make every self-hosted copy report its visitors to TGWAB's analytics—2026-09-26—review 2026-12-25
 
 ## Credits
 
