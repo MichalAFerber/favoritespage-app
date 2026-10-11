@@ -75,7 +75,7 @@ State document shape (per user):
 ```json
 {
   "shortcuts": [{ "id": "sc_...", "name": "GitHub", "url": "https://github.com", "iconUrl": "https://…/icon.png", "page": "homelab" }],
-  "settings": { "theme": "dark", "wallpaperUrl": "", "wallpaperUrlMobile": "", "bgColor": "", "pageSort": { "homelab": "manual" } },
+  "settings": { "theme": "dark", "wallpaperUrl": "", "wallpaperUrlMobile": "", "bgColor": "", "searchUrl": "", "pageSort": { "homelab": "manual" } },
   "updatedAt": 1751600000000
 }
 ```
@@ -224,6 +224,18 @@ users is fine; watch this before inviting more.
 - Wallpaper URL is escaped via `cssUrl()` before hitting `background-image`.
   Any new user-supplied string that touches CSS or HTML gets the same
   treatment.
+- Search box: Enter opens `settings.searchUrl` in a new `noopener` tab, then
+  reloads the page. `%s` in the value is the encoded query (appended when
+  there is no `%s`); blank means the default, `https://degoog.org/search?q=%s`.
+  The value is synced, so it can arrive from sync or old local storage
+  holding anything: `fillSearchUrl()` re-checks at use that the result is an
+  http(s) URL and falls back to the default otherwise. Keep that check — the
+  Settings dialog refusing a bad value on save is not enough. Never hardcode
+  a private or LAN-only search host; this app is public.
+- The search box takes focus on load on desktop only (fine pointer with
+  hover, nothing else focused, no dialog open). On a touch device the
+  keyboard would cover the grid on every load, and the page reloads after
+  every search. `/` focuses it everywhere.
 
 ## Guardrails
 

@@ -327,7 +327,7 @@
 <main>
   <div id="search">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
-    <input type="search" id="searchBox" aria-label="Search Google" autocomplete="off" spellcheck="false" enterkeyhint="search">
+    <input type="search" id="searchBox" aria-label="Search the web" autocomplete="off" spellcheck="false" enterkeyhint="search">
   </div>
   <nav id="pages" hidden aria-label="Pages"></nav>
   <div id="grid"></div>
@@ -369,6 +369,11 @@
   <input type="text" id="setWallpaperMobile" autocomplete="off" placeholder="https://…/phone.jpg (optional — screens under 800px)">
   <label for="setBgColor">Background color</label>
   <input type="text" id="setBgColor" autocomplete="off" placeholder="#111418 (optional)">
+
+  <h3>Search</h3>
+  <label for="setSearchUrl">Search URL</label>
+  <input type="text" id="setSearchUrl" autocomplete="off" placeholder="https://degoog.org/search?q=%s">
+  <p class="hint">Where the search box sends what you type; %s stands for your search. Leave blank for degoog.org. Running your own degoog? Use https://search.example.com/search?q=%s with your own host name.</p>
 
   <h3>This device</h3>
   <label for="setDefaultPage">Default page</label>
@@ -416,7 +421,8 @@ function defaultState() {
   return {
     shortcuts: [],
     // pageSort maps a page name to "manual"; absent = alphabetical.
-    settings: { theme: "dark", wallpaperUrl: "", wallpaperUrlMobile: "", bgColor: "", pageSort: {} },
+    // searchUrl is the search box's URL template; "" = DEFAULT_SEARCH_URL.
+    settings: { theme: "dark", wallpaperUrl: "", wallpaperUrlMobile: "", bgColor: "", searchUrl: "", pageSort: {} },
     updatedAt: 0,
   };
 }
@@ -962,6 +968,7 @@ $("settingsBtn").addEventListener("click", () => {
   $("setWallpaper").value = s.wallpaperUrl || "";
   $("setWallpaperMobile").value = s.wallpaperUrlMobile || "";
   $("setBgColor").value = s.bgColor || "";
+  $("setSearchUrl").value = s.searchUrl || "";
   $("setDefaultPage").value = deviceDefaultPage;
   $("setToken").value = syncConfig ? syncConfig.token : "";
   setSyncStatus(lastSyncStatus);
@@ -971,6 +978,14 @@ $("settingsBtn").addEventListener("click", () => {
 $("settingsCancel").addEventListener("click", () => $("settingsDialog").close());
 
 $("settingsSave").addEventListener("click", () => {
+  // Refuse a search URL that is not http(s) before anything is saved. The
+  // message is a native validation bubble on the field: a toast would sit
+  // behind this dialog.
+  const searchUrl = $("setSearchUrl").value.trim();
+  $("setSearchUrl").setCustomValidity(searchUrl && !fillSearchUrl(searchUrl, "")
+    ? "Enter an http:// or https:// address, or leave this blank." : "");
+  if (!$("setSearchUrl").reportValidity()) return;
+
   // The sync token is device-local only — kept out of the synced document.
   const token = $("setToken").value.trim();
   const hadSync = !!syncConfig;
@@ -995,11 +1010,13 @@ $("settingsSave").addEventListener("click", () => {
   const wallpaperUrlMobile = $("setWallpaperMobile").value.trim();
   const bgColor = $("setBgColor").value.trim();
   const docChanged = s.theme !== theme || s.wallpaperUrl !== wallpaperUrl ||
-    s.wallpaperUrlMobile !== wallpaperUrlMobile || s.bgColor !== bgColor;
+    s.wallpaperUrlMobile !== wallpaperUrlMobile || s.bgColor !== bgColor ||
+    s.searchUrl !== searchUrl;
   s.theme = theme;
   s.wallpaperUrl = wallpaperUrl;
   s.wallpaperUrlMobile = wallpaperUrlMobile;
   s.bgColor = bgColor;
+  s.searchUrl = searchUrl;
 
   $("settingsDialog").close();
   if (docChanged) {
@@ -1132,9 +1149,29 @@ $("importFile").addEventListener("change", async () => {
   $("settingsDialog").close();
 });
 
-/* ---------- Google search (Enter opens a new tab; "/" focuses) ---------- */
+/* ---------- web search (Enter opens a new tab; "/" focuses) ---------- */
 
 const searchBox = $("searchBox");
+const DEFAULT_SEARCH_URL = "https://degoog.org/search?q=%s";
+
+// Fill a search URL template: %s becomes the encoded query, and a template
+// without %s gets the query appended. Returns "" unless the result is an
+// http(s) URL. settings.searchUrl is synced, so it can arrive from sync or
+// old local storage holding anything, and a javascript: or data: URL must
+// never reach window.open — whatever the Settings dialog refuses on save.
+function fillSearchUrl(template, q) {
+  const t = String(template || "").trim();
+  if (!t) return "";
+  const enc = encodeURIComponent(q);
+  try {
+    // Appending to the parsed form (https://host becomes https://host/)
+    // keeps the query from running into the host name.
+    const u = new URL(t.includes("%s") ? t.split("%s").join(enc) : new URL(t).href + enc);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : "";
+  } catch {
+    return "";
+  }
+}
 
 searchBox.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -1145,7 +1182,8 @@ searchBox.addEventListener("keydown", (e) => {
   const q = searchBox.value.trim();
   if (!q) return;
   e.preventDefault();
-  window.open("https://www.google.com/search?q=" + encodeURIComponent(q), "_blank", "noopener");
+  window.open(fillSearchUrl(state.settings.searchUrl, q) || fillSearchUrl(DEFAULT_SEARCH_URL, q),
+    "_blank", "noopener");
   // Reload instead of clearing the box — a fresh page also re-pulls state.
   location.reload();
 });
@@ -1178,6 +1216,15 @@ render();
 applySettings();
 setSyncStatus("");
 pull();
+
+// Focus the search box on load — desktop only (a fine pointer that can
+// hover). On a touch device the on-screen keyboard would cover the tile grid
+// on every load, and the page reloads after every search. To focus on touch
+// devices too, set this to true.
+const focusSearchOnLoad = matchMedia("(hover: hover) and (pointer: fine)").matches;
+if (focusSearchOnLoad && !document.querySelector("dialog[open]") && document.activeElement === document.body) {
+  searchBox.focus({ preventScroll: true });
+}
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") pull();
