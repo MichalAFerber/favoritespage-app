@@ -12,6 +12,7 @@ A fast, self-hosted favorites (speed-dial) page that syncs across devices. One C
 - **Pages** — group tiles onto named pages via `?p=homelab`; a chip bar switches between them and the bare URL shows the main page. Page assignment is a per-favorite field; a tab-style **Home** chip always gets you back.
 - **Sort your way** — tiles are alphabetical by default, or switch a page to **manual** with the header toggle and long-press-drag tiles into any order. Sort mode is remembered per page and synced.
 - **Open how you like** — plain click opens in place; **Ctrl/Cmd-click** a new tab, **Shift-click** a new window, and right-click gives the normal browser menu.
+- **Search box** — type and press Enter to search the web in a new tab; `/` jumps to the box, and on a desktop it has focus as soon as the page loads. Searches go to [degoog.org](https://degoog.org) unless you set a **Search URL** in Settings, where `%s` stands for the search: your own degoog instance, say, at `https://search.example.com/search?q=%s`. The setting syncs with everything else.
 - **Long-press to edit or delete** — 500 ms hold on any tile. Deletion uses a two-tap confirm (no browser `confirm()` dialogs).
 - **Themes and backdrop** — dark or light theme, an optional background color, and separate **desktop and mobile wallpapers** (screens under 800px get the mobile image, live on rotate/resize).
 - **Responsive layout** — tiles use large icons in a grid that packs as many per row as fit, dropping to exactly **three per row on portrait phones** (under 500px). The mobile wallpaper has its own, wider breakpoint (under 800px), so a phone in landscape keeps its wallpaper while switching to the denser grid. Tile labels wrap to **two lines** before truncating with an ellipsis (hover shows the full name).
@@ -43,7 +44,7 @@ favorites/
 
 - **Icon proxy** — `/icon` is unauthenticated and always returns an image, so the browser never talks to third-party icon services directly and never logs a `404`. Results are edge-cached for days; bumping the `v=` in the icon URL invalidates the cache when the resolution logic changes.
 - **Auth** — the bearer token *is* the identity. The Worker hashes it (SHA-256) and looks up `token:<hash>` → `userId` in KV; the user's document lives at `state:<userId>`. Plaintext tokens are never stored server-side, and the sync token lives only in each device's local storage — never inside the synced document.
-- **State document** — one JSON blob per user: `shortcuts` (each with a name, url, and optional `iconUrl` / `page`) plus `settings` (theme, desktop and mobile wallpaper URLs, background color, and per-page sort mode). The device-local default page is deliberately *not* in it.
+- **State document** — one JSON blob per user: `shortcuts` (each with a name, url, and optional `iconUrl` / `page`) plus `settings` (theme, desktop and mobile wallpaper URLs, background color, search URL, and per-page sort mode). The device-local default page is deliberately *not* in it.
 - **Sync model** — last-write-wins on the document's `updatedAt`, whole document, per user. Two of *your own* devices editing offline resolve to the newest write; different users can never touch each other's documents. No merging, no CRDTs — deliberately.
 - **Storage** — Workers KV, two key shapes (`token:<hash>` and `state:<userId>`), 100 KB cap per user document. The free tier allows 1,000 KV writes per day across all users; a handful of active users is fine.
 
@@ -56,7 +57,7 @@ The marketing site, Stripe checkout, and licensing for Favorites Pro (sync on th
 1. Open the site. Tap **+** to add a favorite; long-press a tile to edit or delete it.
 2. In the add/edit dialog, set an optional **Page** (leave blank for the main page) and an optional **Icon URL** that overrides the auto-detected icon; clear it to revert.
 3. Use the **chip bar** to switch pages, or link straight to `?p=<page>`. The header **⇅** toggle switches the current page between alphabetical and manual order; in manual mode, long-press and drag tiles to rearrange them.
-4. **Settings (gear)** — theme, desktop and mobile wallpaper URLs, background color, this device's default page, the sync token, and **Data** (export / import).
+4. **Settings (gear)** — theme, desktop and mobile wallpaper URLs, background color, the search URL, this device's default page, the sync token, and **Data** (export / import).
 5. To sync a device: get a token (from `issue-token.sh` on your own instance, or your Favorites Pro license key on the hosted one), open Settings → Sync, paste it into **License key**, and save. That's the entire setup — the app always syncs against the site it was loaded from.
 
 ## Deploying your own
